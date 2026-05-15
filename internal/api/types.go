@@ -42,6 +42,7 @@ type Project struct {
 	ID         int    `json:"id"`
 	ProjectKey string `json:"projectKey"`
 	Name       string `json:"name"`
+	UseGit     bool   `json:"useGit"`
 }
 
 // IssueType は課題の種別。

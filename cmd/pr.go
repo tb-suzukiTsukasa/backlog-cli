@@ -24,10 +24,11 @@ var prCmd = &cobra.Command{
 // ------ bk pr list ------
 
 var (
-	prListStatus string
-	prListLimit  int
+	prListStatus  string
+	prListLimit   int
 	prListProject string
-	prListRepo   string
+	prListRepo    string
+	prListAll     bool
 )
 
 var prListCmd = &cobra.Command{
@@ -47,6 +48,7 @@ func init() {
 	prListCmd.Flags().IntVar(&prListLimit, "limit", 30, "取得する最大件数")
 	prListCmd.Flags().StringVar(&prListProject, "project", "", "プロジェクトキー（省略時は git remote から自動検出）")
 	prListCmd.Flags().StringVar(&prListRepo, "repo", "", "リポジトリ名（省略時は git remote から自動検出）")
+	prListCmd.Flags().BoolVar(&prListAll, "all", false, "全プロジェクト・全リポジトリの PR を横断取得")
 
 	prCreateCmd.Flags().StringVar(&prCreateTitle, "title", "", "PR タイトル（省略時はインタラクティブ入力）")
 	prCreateCmd.Flags().StringVar(&prCreateBody, "body", "", "PR 本文")
@@ -92,12 +94,16 @@ func statusName(id int) string {
 }
 
 func runPRList(cmd *cobra.Command, _ []string) error {
-	client, projectKey, repoName, err := setupClientAndRepo(prListProject, prListRepo)
+	statusIDs, err := statusToIDs(prListStatus)
 	if err != nil {
 		return err
 	}
 
-	statusIDs, err := statusToIDs(prListStatus)
+	if prListAll {
+		return runPRListAll(statusIDs)
+	}
+
+	client, projectKey, repoName, err := setupClientAndRepo(prListProject, prListRepo)
 	if err != nil {
 		return err
 	}
@@ -115,24 +121,71 @@ func runPRList(cmd *cobra.Command, _ []string) error {
 
 	rows := make([]output.PRRow, 0, len(prs))
 	for _, pr := range prs {
-		status := ""
-		if pr.Status != nil {
-			status = statusName(pr.Status.ID)
-		}
-		author := ""
-		if pr.CreatedUser != nil {
-			author = pr.CreatedUser.Name
-		}
-		rows = append(rows, output.PRRow{
-			Number: pr.Number,
-			Title:  pr.Summary,
-			Branch: pr.Branch,
-			Status: status,
-			Author: author,
-		})
+		rows = append(rows, prToRow(pr, ""))
 	}
 	output.PrintPRTable(os.Stdout, rows)
 	return nil
+}
+
+// runPRListAll は全プロジェクト・全リポジトリを横断して PR を取得する。
+func runPRListAll(statusIDs []int) error {
+	client, err := setupClient()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	projects, err := client.ListProjects(ctx)
+	if err != nil {
+		return err
+	}
+
+	var rows []output.PRRow
+	for _, proj := range projects {
+		if !proj.UseGit {
+			continue
+		}
+		repos, err := client.ListRepositories(ctx, proj.ProjectKey)
+		if err != nil {
+			return fmt.Errorf("リポジトリ一覧の取得に失敗しました (%s): %w", proj.ProjectKey, err)
+		}
+		for _, repo := range repos {
+			prs, err := client.ListPullRequests(ctx, proj.ProjectKey, repo.Name, prListLimit, api.PRListOptions{
+				StatusIDs: statusIDs,
+			})
+			if err != nil {
+				return fmt.Errorf("PR一覧の取得に失敗しました (%s/%s): %w", proj.ProjectKey, repo.Name, err)
+			}
+			for _, pr := range prs {
+				rows = append(rows, prToRow(pr, repo.Name))
+			}
+		}
+	}
+
+	if flagJSON {
+		return output.PrintJSON(os.Stdout, rows)
+	}
+	output.PrintPRTable(os.Stdout, rows)
+	return nil
+}
+
+func prToRow(pr *api.PullRequest, repo string) output.PRRow {
+	status := ""
+	if pr.Status != nil {
+		status = statusName(pr.Status.ID)
+	}
+	author := ""
+	if pr.CreatedUser != nil {
+		author = pr.CreatedUser.Name
+	}
+	return output.PRRow{
+		Number: pr.Number,
+		Title:  pr.Summary,
+		Branch: pr.Branch,
+		Status: status,
+		Author: author,
+		Repo:   repo,
+	}
 }
 
 // ------ bk pr view ------
@@ -372,6 +425,23 @@ func editWithEditor() (string, error) {
 }
 
 // ------ 共通ヘルパー ------
+
+// setupClient はプロジェクト/リポジトリ解決なしで api.Client のみを返す。
+func setupClient() (*api.Client, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	sc, spaceName, err := cfg.ResolveSpace(flagSpace)
+	if err != nil {
+		return nil, err
+	}
+	apiKey, err := auth.GetAPIKey(spaceName)
+	if err != nil {
+		return nil, err
+	}
+	return api.NewClient(sc.Host, apiKey)
+}
 
 // setupClientAndRepo は設定・認証・git remote を解決して api.Client とプロジェクト/リポジトリを返す。
 func setupClientAndRepo(projectFlag, repoFlag string) (*api.Client, string, string, error) {

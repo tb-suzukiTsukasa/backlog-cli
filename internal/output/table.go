@@ -15,24 +15,48 @@ type PRRow struct {
 	Branch string
 	Status string
 	Author string
+	Repo   string
 }
 
 // PrintPRTable は PR 一覧をテーブル形式で w に出力する。
+// いずれかの行に Repo が設定されていればリポジトリ列を先頭に表示する。
 func PrintPRTable(w io.Writer, rows []PRRow) {
 	if w == nil {
 		w = os.Stdout
 	}
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "#\tタイトル\tブランチ\tステータス\t作成者")
-	fmt.Fprintln(tw, "-\t------\t------\t--------\t----")
+	showRepo := false
 	for _, r := range rows {
-		fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\n",
-			r.Number,
-			truncate(r.Title, 50),
-			r.Branch,
-			r.Status,
-			r.Author,
-		)
+		if r.Repo != "" {
+			showRepo = true
+			break
+		}
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if showRepo {
+		fmt.Fprintln(tw, "リポジトリ\t#\tタイトル\tブランチ\tステータス\t作成者")
+		fmt.Fprintln(tw, "----------\t-\t------\t------\t--------\t----")
+		for _, r := range rows {
+			fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\n",
+				r.Repo,
+				r.Number,
+				truncate(r.Title, 50),
+				r.Branch,
+				r.Status,
+				r.Author,
+			)
+		}
+	} else {
+		fmt.Fprintln(tw, "#\tタイトル\tブランチ\tステータス\t作成者")
+		fmt.Fprintln(tw, "-\t------\t------\t--------\t----")
+		for _, r := range rows {
+			fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\n",
+				r.Number,
+				truncate(r.Title, 50),
+				r.Branch,
+				r.Status,
+				r.Author,
+			)
+		}
 	}
 	tw.Flush()
 }
