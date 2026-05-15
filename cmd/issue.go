@@ -30,6 +30,7 @@ var (
 var issueListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List issues",
+	Args:  cobra.NoArgs,
 	RunE:  runIssueList,
 }
 
@@ -44,10 +45,7 @@ var issueViewCmd = &cobra.Command{
 
 // ------ bk issue comment ------
 
-var (
-	issueCommentBody    string
-	issueCommentProject string
-)
+var issueCommentBody string
 
 var issueCommentCmd = &cobra.Command{
 	Use:   "comment <issue-key>",
