@@ -118,18 +118,50 @@ func downloadAndReplace(ver, destPath string) error {
 		return fmt.Errorf("アーカイブの展開に失敗しました: %w", err)
 	}
 
-	// 既存バイナリをバックアップしてから置き換え
-	tmpPath := destPath + ".tmp"
-	if err := os.WriteFile(tmpPath, newBin, 0o755); err != nil {
-		return fmt.Errorf("一時ファイルの書き込みに失敗しました: %w", err)
+	// 一時ファイルは常に書き込み可能な tmpdir に作成する
+	tmp, err := os.CreateTemp("", "bk-upgrade-*")
+	if err != nil {
+		return fmt.Errorf("一時ファイルの作成に失敗しました: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmp.Write(newBin); err != nil {
+		tmp.Close()
+		return fmt.Errorf("一時ファイルへの書き込みに失敗しました: %w", err)
+	}
+	tmp.Close()
+
+	// rename を試みる（同一ファイルシステムならアトミック）
+	if err := os.Rename(tmpPath, destPath); err == nil {
+		return nil
 	}
 
-	if err := os.Rename(tmpPath, destPath); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("バイナリの置き換えに失敗しました（sudo が必要かもしれません）: %w", err)
+	// cross-device など rename 不可の場合はコピーで置き換え
+	if err := copyFile(tmpPath, destPath); err != nil {
+		if os.IsPermission(err) {
+			return fmt.Errorf("権限エラー: `sudo bk upgrade` を試してください")
+		}
+		return fmt.Errorf("バイナリの置き換えに失敗しました: %w", err)
 	}
-
 	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // extractBinary は .tar.gz から "bk" バイナリの内容を返す。
