@@ -29,11 +29,10 @@ esac
 
 # 最新バージョンを取得
 VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-  -H "Authorization: token ${GITHUB_TOKEN}" \
   | grep '"tag_name"' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
 
 if [ -z "$VERSION" ]; then
-  echo "バージョンの取得に失敗しました。GITHUB_TOKEN が設定されているか確認してください。" >&2
+  echo "バージョンの取得に失敗しました。" >&2
   exit 1
 fi
 
@@ -45,7 +44,7 @@ echo "bk ${VERSION} をインストールします (${OS}/${ARCH})..."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" "$URL" -o "${TMP}/${ARCHIVE}"
+curl -fsSL "$URL" -o "${TMP}/${ARCHIVE}"
 tar xzf "${TMP}/${ARCHIVE}" -C "$TMP"
 
 if [ ! -w "$INSTALL_DIR" ]; then
