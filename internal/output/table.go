@@ -138,6 +138,46 @@ func PrintIssueDetail(w io.Writer, issue IssueDetail) {
 	}
 }
 
+// ProjectRow はテーブル出力用のプロジェクト行データ。
+type ProjectRow struct {
+	Key  string
+	Name string
+}
+
+// PrintProjectTable はプロジェクト一覧をテーブル形式で w に出力する。
+func PrintProjectTable(w io.Writer, rows []ProjectRow) {
+	if w == nil {
+		w = os.Stdout
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "キー\t名前")
+	fmt.Fprintln(tw, "---\t----")
+	for _, r := range rows {
+		fmt.Fprintf(tw, "%s\t%s\n", r.Key, r.Name)
+	}
+	tw.Flush()
+}
+
+// RepoRow はテーブル出力用のリポジトリ行データ。
+type RepoRow struct {
+	Name        string
+	Description string
+}
+
+// PrintRepoTable はリポジトリ一覧をテーブル形式で w に出力する。
+func PrintRepoTable(w io.Writer, rows []RepoRow) {
+	if w == nil {
+		w = os.Stdout
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "名前\t説明")
+	fmt.Fprintln(tw, "----\t----")
+	for _, r := range rows {
+		fmt.Fprintf(tw, "%s\t%s\n", r.Name, truncate(r.Description, 60))
+	}
+	tw.Flush()
+}
+
 func truncate(s string, n int) string {
 	runes := []rune(s)
 	if len(runes) <= n {

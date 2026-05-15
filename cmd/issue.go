@@ -62,8 +62,7 @@ func init() {
 
 	issueListCmd.Flags().StringVar(&issueListStatus, "status", "open", "フィルタするステータス (open/in-progress/resolved/closed/all)")
 	issueListCmd.Flags().IntVar(&issueListLimit, "limit", 30, "取得する最大件数")
-	issueListCmd.Flags().StringVar(&issueListProject, "project", "", "プロジェクトキー（必須）")
-	_ = issueListCmd.MarkFlagRequired("project")
+	issueListCmd.Flags().StringVar(&issueListProject, "project", "", "プロジェクトキー（省略時は対話的に選択）")
 
 	issueCommentCmd.Flags().StringVar(&issueCommentBody, "body", "", "コメント本文（省略時は $EDITOR を起動）")
 }
@@ -107,9 +106,17 @@ func runIssueList(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	project, err := client.GetProject(context.Background(), issueListProject)
+	projectKey := issueListProject
+	if projectKey == "" {
+		projectKey, err = selectProject(client)
+		if err != nil {
+			return err
+		}
+	}
+
+	project, err := client.GetProject(context.Background(), projectKey)
 	if err != nil {
-		return fmt.Errorf("プロジェクト %q の取得に失敗しました: %w", issueListProject, err)
+		return fmt.Errorf("プロジェクト %q の取得に失敗しました: %w", projectKey, err)
 	}
 
 	statusIDs, err := issueStatusToIDs(issueListStatus)

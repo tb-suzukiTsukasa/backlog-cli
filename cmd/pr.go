@@ -398,15 +398,30 @@ func setupClientAndRepo(projectFlag, repoFlag string) (*api.Client, string, stri
 	projectKey := projectFlag
 	repoName := repoFlag
 	if projectKey == "" || repoName == "" {
-		repo, err := gitpkg.DetectRepo()
+		repo, detectErr := gitpkg.DetectRepo()
+		if detectErr == nil {
+			if projectKey == "" {
+				projectKey = repo.Project
+			}
+			if repoName == "" {
+				repoName = repo.Repo
+			}
+		}
+	}
+
+	// git remote 検出失敗またはフラグ未指定の場合は対話的に選択
+	if projectKey == "" {
+		var err error
+		projectKey, err = selectProject(client)
 		if err != nil {
 			return nil, "", "", err
 		}
-		if projectKey == "" {
-			projectKey = repo.Project
-		}
-		if repoName == "" {
-			repoName = repo.Repo
+	}
+	if repoName == "" {
+		var err error
+		repoName, err = selectRepo(client, projectKey)
+		if err != nil {
+			return nil, "", "", err
 		}
 	}
 
