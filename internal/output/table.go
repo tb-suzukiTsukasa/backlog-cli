@@ -81,6 +81,63 @@ func PrintPRDetail(w io.Writer, pr PRDetail) {
 	}
 }
 
+// IssueRow はテーブル出力用の課題行データ。
+type IssueRow struct {
+	Key      string
+	Title    string
+	Status   string
+	Priority string
+	Assignee string
+}
+
+// PrintIssueTable は課題一覧をテーブル形式で w に出力する。
+func PrintIssueTable(w io.Writer, rows []IssueRow) {
+	if w == nil {
+		w = os.Stdout
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "キー\tタイトル\tステータス\t優先度\t担当者")
+	fmt.Fprintln(tw, "---\t------\t--------\t-----\t----")
+	for _, r := range rows {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+			r.Key,
+			truncate(r.Title, 50),
+			r.Status,
+			r.Priority,
+			r.Assignee,
+		)
+	}
+	tw.Flush()
+}
+
+// IssueDetail は課題詳細表示用のデータ。
+type IssueDetail struct {
+	Key         string
+	Title       string
+	Status      string
+	Priority    string
+	IssueType   string
+	Assignee    string
+	Author      string
+	Description string
+}
+
+// PrintIssueDetail は課題詳細を整形表示する。
+func PrintIssueDetail(w io.Writer, issue IssueDetail) {
+	if w == nil {
+		w = os.Stdout
+	}
+	fmt.Fprintf(w, "課題 %s: %s\n", issue.Key, issue.Title)
+	fmt.Fprintf(w, "ステータス: %s\n", issue.Status)
+	fmt.Fprintf(w, "種別:       %s\n", issue.IssueType)
+	fmt.Fprintf(w, "優先度:     %s\n", issue.Priority)
+	fmt.Fprintf(w, "担当者:     %s\n", issue.Assignee)
+	fmt.Fprintf(w, "登録者:     %s\n", issue.Author)
+	if issue.Description != "" {
+		fmt.Fprintf(w, "\n%s\n", issue.Description)
+	}
+}
+
 func truncate(s string, n int) string {
 	runes := []rune(s)
 	if len(runes) <= n {

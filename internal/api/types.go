@@ -36,3 +36,42 @@ type GitRepository struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
+
+// Project は Backlog のプロジェクトを表す。
+type Project struct {
+	ID         int    `json:"id"`
+	ProjectKey string `json:"projectKey"`
+	Name       string `json:"name"`
+}
+
+// IssueType は課題の種別。
+type IssueType struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// Priority は優先度。
+type Priority struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// IssueStatus は課題のステータス。
+type IssueStatus struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// Issue は Backlog の課題を表す。
+type Issue struct {
+	ID          int          `json:"id"`
+	ProjectID   int          `json:"projectId"`
+	IssueKey    string       `json:"issueKey"`
+	IssueType   *IssueType   `json:"issueType"`
+	Summary     string       `json:"summary"`
+	Description string       `json:"description"`
+	Status      *IssueStatus `json:"status"`
+	Priority    *Priority    `json:"priority"`
+	Assignee    *User        `json:"assignee"`
+	CreatedUser *User        `json:"createdUser"`
+}
